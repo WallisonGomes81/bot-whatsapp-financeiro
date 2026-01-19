@@ -33,6 +33,20 @@ def criar_tabela():
     cur.close()
     conn.close()
 
+ def atualizar_banco():
+    conn = conectar()
+    cur = conn.cursor()
+
+    cur.execute("""
+        ALTER TABLE transacoes
+        ADD COLUMN IF NOT EXISTS categoria TEXT
+    """)
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 
 def salvar(telefone, tipo, valor, descricao, categoria):
     conn = conectar()
@@ -208,6 +222,8 @@ def whatsapp():
 
 
 criar_tabela()
+atualizar_banco()
 
 if __name__ == "__main__":
     app.run()
+
