@@ -1,67 +1,82 @@
+import os
+import psycopg2
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-import sqlite3
-import os
 
 app = Flask(__name__)
 
-DB = "financeiro.db"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 def conectar():
-    return sqlite3.connect(DB)
+    return psycopg2.connect(DATABASE_URL, sslmode="require")
 
 
-def criar_tabelas():
+def criar_tabela():
     conn = conectar()
-    c = conn.cursor()
+    cur = conn.cursor()
 
-    c.execute("""
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS transacoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
+            telefone TEXT,
             tipo TEXT NOT NULL,
-            valor REAL NOT NULL,
-            descricao TEXT
+            valor NUMERIC NOT NULL,
+            descricao TEXT,
+            data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
     conn.commit()
+    cur.close()
     conn.close()
 
 
-def salvar(tipo, valor, descricao):
+def salvar(telefone, tipo, valor, descricao):
     conn = conectar()
-    c = conn.cursor()
-    c.execute(
-        "INSERT INTO transacoes (tipo, valor, descricao) VALUES (?, ?, ?)",
-        (tipo, valor, descricao)
+    cur = conn.cursor()
+
+    cur.execute(
+        "INSERT INTO transacoes (telefone, tipo, valor, descricao) VALUES (%s, %s, %s, %s)",
+        (telefone, tipo, valor, descricao)
     )
+
     conn.commit()
+    cur.close()
     conn.close()
 
 
-def calcular_saldo():
+def calcular_saldo(telefone):
     conn = conectar()
-    c = conn.cursor()
+    cur = conn.cursor()
 
-    c.execute("SELECT SUM(valor) FROM transacoes WHERE tipo='entrada'")
-    entradas = c.fetchone()[0] or 0
+    cur.execute(
+        "SELECT COALESCE(SUM(valor), 0) FROM transacoes WHERE telefone=%s AND tipo='entrada'",
+        (telefone,)
+    )
+    entradas = cur.fetchone()[0]
 
-    c.execute("SELECT SUM(valor) FROM transacoes WHERE tipo='saida'")
-    saidas = c.fetchone()[0] or 0
+    cur.execute(
+        "SELECT COALESCE(SUM(valor), 0) FROM transacoes WHERE telefone=%s AND tipo='saida'",
+        (telefone,)
+    )
+    saidas = cur.fetchone()[0]
 
+    cur.close()
     conn.close()
+
     return entradas - saidas
 
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp():
     texto = request.form.get("Body", "").strip()
+    telefone = request.form.get("From", "")
     resp = MessagingResponse()
 
     try:
         if texto.lower() == "saldo":
-            saldo = calcular_saldo()
+            saldo = calcular_saldo(telefone)
             resp.message(f"💰 Saldo atual: R$ {saldo:.2f}")
             return str(resp)
 
@@ -72,7 +87,7 @@ def whatsapp():
             valor = float(partes[0].replace(",", "."))
             descricao = partes[1] if len(partes) > 1 else "Entrada"
 
-            salvar("entrada", valor, descricao)
+            salvar(telefone, "entrada", valor, descricao)
             resp.message(f"✅ Entrada registrada: R$ {valor:.2f}")
             return str(resp)
 
@@ -83,7 +98,7 @@ def whatsapp():
             valor = float(partes[0].replace(",", "."))
             descricao = partes[1] if len(partes) > 1 else "Saída"
 
-            salvar("saida", valor, descricao)
+            salvar(telefone, "saida", valor, descricao)
             resp.message(f"❌ Saída registrada: R$ {valor:.2f}")
             return str(resp)
 
@@ -96,18 +111,12 @@ def whatsapp():
         return str(resp)
 
     except Exception:
-        resp.message(
-            "⚠️ Erro ao processar mensagem.\n"
-            "Use:\n"
-            "+ 100 salário\n"
-            "- 25 almoço"
-        )
+        resp.message("⚠️ Erro ao processar mensagem.")
         return str(resp)
 
 
-# 🔥 CRIA AS TABELAS AUTOMATICAMENTE
-criar_tabelas()
-
+# 🔥 cria tabela automaticamente
+criar_tabela()
 
 if __name__ == "__main__":
     app.run()
