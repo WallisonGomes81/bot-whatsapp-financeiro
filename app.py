@@ -33,7 +33,9 @@ def criar_tabela():
     cur.close()
     conn.close()
 
- def atualizar_banco():
+    
+
+def atualizar_banco():
     conn = conectar()
     cur = conn.cursor()
 
@@ -45,6 +47,7 @@ def criar_tabela():
     conn.commit()
     cur.close()
     conn.close()
+
 
 
 
