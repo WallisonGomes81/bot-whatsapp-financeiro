@@ -174,69 +174,57 @@ def whatsapp():
         if texto == "saldo":
             saldo = calcular_saldo(telefone)
             resp.message(f"💰 Saldo atual: R$ {saldo:.2f}")
-            return str(resp)
 
-       # AJUDA
-        if texto == "ajuda":
-             resp.message(
-              "📘 *Comandos disponíveis*\n\n"
-              "➕ + valor descrição → registrar *entrada*\n"
-              "➖ - valor descrição → registrar *saída*\n\n"
-              "💰 saldo → ver saldo atual\n"
-              "📆 hoje → ver gastos de hoje\n"
-              "📅 dia → relatório do dia atual\n"
-              "📅 dia dd/mm/aaaa → relatório de um dia específico\n"
-              "📊 mes → relatório do mês atual\n"
-              "📊 mes mm/aaaa → relatório de um mês específico\n\n"
-              "ℹ️ ajuda → ver esta lista de comandos"
-             )
-             return str(resp)
+        # AJUDA
+        elif texto == "ajuda":
+            resp.message(
+                "📘 *Comandos disponíveis*\n\n"
+                "➕ + valor descrição → registrar *entrada*\n"
+                "➖ - valor descrição → registrar *saída*\n\n"
+                "💰 saldo → ver saldo atual\n"
+                "📆 hoje → ver gastos de hoje\n"
+                "📅 dia → relatório do dia atual\n"
+                "📅 dia dd/mm/aaaa → relatório de um dia específico\n"
+                "📊 mes → relatório do mês atual\n"
+                "📊 mes mm/aaaa → relatório de um mês específico\n\n"
+                "ℹ️ ajuda → ver esta lista de comandos"
+            )
 
         # GASTOS DO DIA
-        if texto == "hoje":
+        elif texto == "hoje":
             total = gastos_hoje(telefone)
             resp.message(f"📆 Gastos de hoje: R$ {total:.2f}")
-            return str(resp)
-        
-        # RELATÓRIO DO DIA
-        if texto.startswith("dia"):
-            partes = texto.split()
 
+        # RELATÓRIO DO DIA
+        elif texto.startswith("dia"):
+            partes = texto.split()
             hoje = date.today()
             dia = hoje.day
             mes = hoje.month
             ano = hoje.year
 
             if len(partes) == 2:
-              dia, mes, ano = partes[1].split("/")
-              dia = int(dia)
-              mes = int(mes)
-              ano = int(ano)
+                dia, mes, ano = map(int, partes[1].split("/"))
 
-        entradas, saidas = relatorio_dia(telefone, dia, mes, ano)
-        saldo = entradas - saidas
+            entradas, saidas = relatorio_dia(telefone, dia, mes, ano)
+            saldo = entradas - saidas
 
-        resp.message(
-           f"📅 *Relatório {dia:02d}/{mes:02d}/{ano}*\n"
-           f"➕ Entradas: R$ {entradas:.2f}\n"
-           f"➖ Saídas: R$ {saidas:.2f}\n"
-           f"💰 Saldo: R$ {saldo:.2f}"
-        )
-        return str(resp)
-
+            resp.message(
+                f"📅 *Relatório {dia:02d}/{mes:02d}/{ano}*\n"
+                f"➕ Entradas: R$ {entradas:.2f}\n"
+                f"➖ Saídas: R$ {saidas:.2f}\n"
+                f"💰 Saldo: R$ {saldo:.2f}"
+            )
 
         # RELATÓRIO MENSAL
-        if texto.startswith("mes"):
+        elif texto.startswith("mes"):
             partes = texto.split()
-
             hoje = date.today()
             mes = hoje.month
             ano = hoje.year
 
             if len(partes) == 2:
-                mes, ano = partes[1].split("/")
-                mes = int(mes)
-                ano = int(ano)
+                mes, ano = map(int, partes[1].split("/"))
 
             entradas, saidas = relatorio_mes(telefone, mes, ano)
             saldo = entradas - saidas
@@ -247,36 +235,38 @@ def whatsapp():
                 f"➖ Saídas: R$ {saidas:.2f}\n"
                 f"💰 Saldo: R$ {saldo:.2f}"
             )
-            return str(resp)
 
         # ENTRADA
-        if texto.startswith("+"):
-            conteudo = texto[1:].strip().split(" ", 1)
+        elif texto.startswith("+"):
+            conteudo = texto.replace("+", "", 1).strip().split(" ", 1)
             valor = float(conteudo[0].replace(",", "."))
             descricao = conteudo[1] if len(conteudo) > 1 else "Entrada"
+
             salvar(telefone, "entrada", valor, descricao, "geral")
             resp.message(f"✅ Entrada registrada: R$ {valor:.2f}")
-            return str(resp)
 
         # SAÍDA
-        if texto.startswith("-"):
-            conteudo = texto[1:].strip().split(" ", 1)
+        elif texto.startswith("-"):
+            conteudo = texto.replace("-", "", 1).strip().split(" ", 1)
             valor = float(conteudo[0].replace(",", "."))
             descricao = conteudo[1] if len(conteudo) > 1 else "Saída"
+
             salvar(telefone, "saida", valor, descricao, descricao)
             resp.message(f"❌ Saída registrada: R$ {valor:.2f}")
-            return str(resp)
 
         # COMANDO INVÁLIDO
-        resp.message(
-            "❓ Comando não reconhecido.\n"
-            "Digite *ajuda* para ver os comandos disponíveis."
-        )
+        else:
+            resp.message(
+                "❓ Comando não reconhecido.\n"
+                "Digite *ajuda* para ver os comandos disponíveis."
+            )
+
         return str(resp)
 
     except Exception as e:
         resp.message("⚠️ Erro ao processar sua mensagem.")
         return str(resp)
+
 
 
 criar_tabela()
