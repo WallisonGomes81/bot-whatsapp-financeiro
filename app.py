@@ -107,6 +107,32 @@ def gastos_hoje(telefone):
     conn.close()
     return total
 
+def relatorio_dia(telefone, dia, mes, ano):
+    conn = conectar()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT tipo, COALESCE(SUM(valor),0)
+        FROM transacoes
+        WHERE telefone=%s
+        AND DATE(data) = %s
+        GROUP BY tipo
+    """, (telefone, date(ano, mes, dia)))
+
+    dados = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    entradas = 0
+    saidas = 0
+
+    for tipo, valor in dados:
+        if tipo == "entrada":
+            entradas = valor
+        elif tipo == "saida":
+            saidas = valor
+
+    return entradas, saidas
 
 def relatorio_mes(telefone, mes, ano):
     conn = conectar()
@@ -150,25 +176,54 @@ def whatsapp():
             resp.message(f"💰 Saldo atual: R$ {saldo:.2f}")
             return str(resp)
 
-        # AJUDA
+       # AJUDA
         if texto == "ajuda":
-            resp.message(
-                "📘 *Comandos disponíveis*\n\n"
-                "+ valor desc → entrada\n"
-                "- valor desc → saída\n"
-                "saldo → saldo atual\n"
-                "hoje → gastos de hoje\n"
-                "mes → relatório mês atual\n"
-                "mes mm/aaaa → relatório mês específico\n"
-                "ajuda → ver comandos"
-            )
-            return str(resp)
+             resp.message(
+              "📘 *Comandos disponíveis*\n\n"
+              "➕ + valor descrição → registrar *entrada*\n"
+              "➖ - valor descrição → registrar *saída*\n\n"
+              "💰 saldo → ver saldo atual\n"
+              "📆 hoje → ver gastos de hoje\n"
+              "📅 dia → relatório do dia atual\n"
+              "📅 dia dd/mm/aaaa → relatório de um dia específico\n"
+              "📊 mes → relatório do mês atual\n"
+              "📊 mes mm/aaaa → relatório de um mês específico\n\n"
+              "ℹ️ ajuda → ver esta lista de comandos"
+             )
+             return str(resp)
 
         # GASTOS DO DIA
         if texto == "hoje":
             total = gastos_hoje(telefone)
             resp.message(f"📆 Gastos de hoje: R$ {total:.2f}")
             return str(resp)
+        
+        # RELATÓRIO DO DIA
+        if texto.startswith("dia"):
+            partes = texto.split()
+
+            hoje = date.today()
+            dia = hoje.day
+            mes = hoje.month
+            ano = hoje.year
+
+            if len(partes) == 2:
+              dia, mes, ano = partes[1].split("/")
+              dia = int(dia)
+              mes = int(mes)
+              ano = int(ano)
+
+        entradas, saidas = relatorio_dia(telefone, dia, mes, ano)
+        saldo = entradas - saidas
+
+        resp.message(
+           f"📅 *Relatório {dia:02d}/{mes:02d}/{ano}*\n"
+           f"➕ Entradas: R$ {entradas:.2f}\n"
+           f"➖ Saídas: R$ {saidas:.2f}\n"
+           f"💰 Saldo: R$ {saldo:.2f}"
+        )
+        return str(resp)
+
 
         # RELATÓRIO MENSAL
         if texto.startswith("mes"):
